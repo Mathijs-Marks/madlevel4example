@@ -20,13 +20,15 @@ class RemindersFragment : Fragment() {
     private var _binding: FragmentRemindersBinding? = null
     private val binding get() = _binding!!
 
+    private lateinit var remindersRepository: ReminderRepository
+
     private val reminders = arrayListOf<Reminder>()
     private val reminderAdapter = ReminderAdapter(reminders)
 
     override fun onCreateView(
             inflater: LayoutInflater, container: ViewGroup?,
             savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         // Inflate the layout for this fragment
         _binding = FragmentRemindersBinding.inflate(inflater, container, false)
         return binding.root
@@ -36,6 +38,14 @@ class RemindersFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         initViews()
         observeAddReminderResult()
+
+        remindersRepository = ReminderRepository(requireContext())
+        getRemindersFromDatabase()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 
     private fun initViews() {
@@ -46,9 +56,11 @@ class RemindersFragment : Fragment() {
         createItemTouchHelper().attachToRecyclerView(binding.rvReminders)
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    private fun getRemindersFromDatabase() {
+        val reminders = remindersRepository.getAllReminders()
+        this@RemindersFragment.reminders.clear()
+        this@RemindersFragment.reminders.addAll(reminders)
+        reminderAdapter.notifyDataSetChanged()
     }
 
     private fun observeAddReminderResult() {
@@ -56,8 +68,10 @@ class RemindersFragment : Fragment() {
             bundle.getString(BUNDLE_REMINDER_KEY)?.let {
                 val reminder = Reminder(it)
 
-                reminders.add(reminder)
-                reminderAdapter.notifyDataSetChanged()
+                //reminders.add(reminder)
+                //reminderAdapter.notifyDataSetChanged()
+                remindersRepository.insertReminder(reminder)
+                getRemindersFromDatabase()
             }       // Throws an error log when there's no text.
                     ?: Log.e("RemindersFragment", "Request triggered, but empty reminder text!")
         }
@@ -82,10 +96,15 @@ class RemindersFragment : Fragment() {
                 return false
             }
 
+            // Callback triggered when a user swiped an item.
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.adapterPosition
-                reminders.removeAt(position)
-                reminderAdapter.notifyDataSetChanged()
+                //reminders.removeAt(position)
+                //reminderAdapter.notifyDataSetChanged()
+
+                val reminderToDelete = reminders[position]
+                remindersRepository.deleteReminder(reminderToDelete)
+                getRemindersFromDatabase()
             }
         }
 
